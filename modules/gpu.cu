@@ -17,7 +17,7 @@ differences are related to GPU offset calculations
 */
 
 __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
-                                        double *d_STATES_RESULT, double *d_all_states,
+                                        double *d_STATES_RESULT, double *d_all_states, double *d_herg,
                                       //  double *time, double *states, double *out_dt,  double *cai_result, 
                                       //  double *ina, double *inal,
                                       //  double *ical, double *ito,
@@ -83,30 +83,10 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
 
     int cipa_datapoint = 0;
 
-    // bool writen = false;
-
-    // files for storing results
-    // time-series result
-    // FILE *fp_vm, *fp_inet, *fp_gate;
-
-    // features
-    // double inet, qnet;
-
-    // looping counter
-    // unsigned short idx;
-  
-    // simulation parameters
-    // double dtw = 2.0;
-    // const char *drug_name = "bepridil";
-    // const double bcl = 2000; // bcl is basic cycle length
     const double bcl = p_param->bcl;
-    
-    // const double inet_vm_threshold = p_param->inet_vm_threshold;
-    // const unsigned short pace_max = 300;
-    // const unsigned short pace_max = 1000;
+     
     const unsigned short pace_max = p_param->pace_max;
-    // const unsigned short celltype = 0.;
-    // const unsigned short last_pace_print = 3;
+   
     const unsigned short last_drug_check_pace = p_param->find_steepest_start;
 
     double conc = p_param->conc; //mmol
@@ -142,8 +122,8 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
 	  // static const int CURRENT_SCALING = 1000;
 
     // printf("Core %d:\n",sample_id);
-    initConsts(d_CONSTANTS, d_STATES, type, conc, d_ic50, d_cvar, p_param->is_dutta, p_param->is_cvar, bcl, sample_id);
     
+    initConsts(d_CONSTANTS, d_STATES, type, conc, d_ic50, d_herg, d_cvar, p_param->is_dutta, p_param->is_cvar, bcl, epsilon, sample_id);
 
     applyDrugEffect(d_CONSTANTS, conc, d_ic50, epsilon, sample_id);
 
@@ -162,12 +142,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     {
         computeRates(tcurr[sample_id], d_CONSTANTS, d_RATES, d_STATES, d_ALGEBRAIC, sample_id); 
         
-        dt_set = set_time_step( tcurr[sample_id], time_point, max_time_step, 
-        d_CONSTANTS, 
-        d_RATES, 
-        d_STATES, 
-        d_ALGEBRAIC, 
-        sample_id); 
+        dt_set = set_time_step( tcurr[sample_id], time_point, max_time_step, d_CONSTANTS, d_RATES, sample_id); 
         
         // printf("tcurr at core %d: %lf\n",sample_id,tcurr[sample_id]);
         if (floor((tcurr[sample_id] + dt_set) / bcl) == floor(tcurr[sample_id] / bcl)) { 
@@ -279,33 +254,8 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
           // writen = false;
         }
         
-
-        //// progress bar starts ////
-
-        // if(sample_id==0 && pace_count%10==0 && pace_count>99 && !writen){
-        // // printf("Calculating... watching core 0: %.2lf %% done\n",(tcurr[sample_id]/tmax)*100.0);
-        // printf("[");
-        // for (cnt=0; cnt<pace_count/10;cnt++){
-        //   printf("=");
-        // }
-        // for (cnt=pace_count/10; cnt<pace_max/10;cnt++){
-        //   printf("_");
-        // }
-        // printf("] %.2lf %% \n",(tcurr[sample_id]/tmax)*100.0);
-        // //mvaddch(0,pace_count,'=');
-        // //refresh();
-        // //system("clear");
-        // writen = true;
-        // }
-
-        // //// progress bar ends ////
-
         solveAnalytical(d_CONSTANTS, d_STATES, d_ALGEBRAIC, d_RATES,  dt[sample_id], sample_id);
-        // tcurr[sample_id] = tcurr[sample_id] + dt[sample_id];
-        // __syncthreads();
-        // printf("solved analytical\n"); 
-        // it goes here, so it means, basically, floor((tcurr[sample_id] + dt_set) / bcl) == floor(tcurr[sample_id] / bcl) is always true
-
+       
         // begin the last 250 pace operations
 
         if (pace_count >= pace_max-last_drug_check_pace)
@@ -591,7 +541,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
 	  // static const int CURRENT_SCALING = 1000;
 
     // printf("Core %d:\n",sample_id);
-    initConsts(d_CONSTANTS, d_STATES, type, conc, d_ic50, d_cvar, p_param->is_dutta, p_param->is_cvar, bcl, sample_id);
+    initConsts(d_CONSTANTS, d_STATES, type, conc, d_ic50, d_herg, d_cvar, p_param->is_dutta, p_param->is_cvar, bcl, epsilon, sample_id);
 
     // starting from initial value, to make things simpler for now, we're just going to replace what initConst has done 
     // to the d_STATES and bring them back to cached initial values:
@@ -623,7 +573,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
     // cipa_result[sample_id].vm_valley = 9.;
     // cipa_result[sample_id].ca_valley = 9.;
 
-
+    
     // printf("%d: %lf, %d\n", sample_id,d_STATES[V + (sample_id * num_of_states)], cnt);
     applyDrugEffect(d_CONSTANTS, conc, d_ic50, epsilon, sample_id);
 
@@ -642,12 +592,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
     {
         computeRates(tcurr[sample_id], d_CONSTANTS, d_RATES, d_STATES, d_ALGEBRAIC, sample_id); 
         
-        dt_set = set_time_step( tcurr[sample_id], time_point, max_time_step, 
-        d_CONSTANTS, 
-        d_RATES, 
-        d_STATES, 
-        d_ALGEBRAIC, 
-        sample_id); 
+        dt_set = set_time_step( tcurr[sample_id], time_point, max_time_step, d_CONSTANTS, d_RATES, sample_id); 
 
         if(d_STATES[(sample_id * num_of_states)+V] > inet_vm_threshold){
           inet += (d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +Ito]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKr]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKs]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IK1])*dt[sample_id];
@@ -956,7 +901,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
 
 
 __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
-                                      double *d_STATES_RESULT, double *d_all_states,
+                                      double *d_STATES_RESULT, double *d_all_states, double *d_herg,
                                       double *time, double *states, double *out_dt,  double *cai_result, 
                                       double *ina, double *inal, 
                                       double *ical, double *ito,
@@ -977,7 +922,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     if (p_param->is_time_series == 0){
     // printf("Calculating %d\n",thread_id);
     kernel_DoDrugSim(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
-                          d_STATES_RESULT, d_all_states,
+                          d_STATES_RESULT, d_all_states, d_herg,
                           // time, states, out_dt, cai_result,
                           // ina, inal, 
                           // ical, ito,
@@ -992,7 +937,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     else if (p_param->is_time_series == 1)
     {
       kernel_DoDrugSim_single(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_STATES_cache, d_RATES, d_ALGEBRAIC,
-                          time, states, out_dt, cai_result,
+                          time, states, out_dt, cai_result, d_herg,
                           ina, inal, 
                           ical, ito,
                           ikr, iks, 

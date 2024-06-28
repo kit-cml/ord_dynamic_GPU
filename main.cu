@@ -81,38 +81,28 @@ int check_IC50_content(const drug_t* ic50, const param_t* p_param);
 
 int get_IC50_data_from_file(const char* file_name, double *ic50)
 {
-    /*
-    a host function to take all samples from the file, assuming each sample has 14 features.
-
-    it takes the file name, and an ic50 (already declared in 1D, everything become 1D)
-    as a note, the data will be stored in 1D array, means this functions applies flatten.
-
-    it returns 'how many samples were detected?' in integer.
-    */
   FILE *fp_drugs;
-//   drug_t ic50;
   char *token;
   char buffer_ic50[255];
   unsigned int idx;
 
   if( (fp_drugs = fopen(file_name, "r")) == NULL){
-    printf("Cannot open file %s\n",
-      file_name);
+    printf("Cannot open file %s\n", file_name);
     return 0;
   }
   idx = 0;
   int sample_size = 0;
   fgets(buffer_ic50, sizeof(buffer_ic50), fp_drugs); // skip header
   while( fgets(buffer_ic50, sizeof(buffer_ic50), fp_drugs) != NULL )
-  { // begin line reading
-    token = strtok( buffer_ic50, "," );
-    while( token != NULL )
-    { // begin data tokenizing
-      ic50[idx++] = strtod(token, NULL);
-      token = strtok(NULL, ",");
-    } // end data tokenizing
-    sample_size++;
-  } // end line reading
+    { // begin line reading
+      token = strtok( buffer_ic50, "," );
+      while( token != NULL )
+      { // begin data tokenizing
+        ic50[idx++] = strtod(token, NULL);
+        token = strtok(NULL, ",");
+      } // end data tokenizing
+      sample_size++;
+    } // end line reading
 
   fclose(fp_drugs);
   return sample_size;
@@ -152,7 +142,6 @@ int get_cvar_data_from_file(const char* file_name, unsigned int limit, double *c
   return sample_size;
 }
 
-
 int get_init_data_from_file(const char* file_name, double *init_states)
 {
   // buffer for writing in snprintf() function
@@ -189,6 +178,7 @@ int get_init_data_from_file(const char* file_name, double *init_states)
   fclose(fp_cache);
   return sample_size;
 }
+
 int exists(const char *fname)
 {
     FILE *file;
@@ -226,15 +216,40 @@ int check_IC50_content(const drug_t* ic50, const param_t* p_param)
 	}
 }
 
+typedef struct herg_row { double herg[6]; } herg_row;
+int get_herg_data_from_file(const char *file_name, herg_data &vec)
+{
+  FILE *fp_drugs;
+  char *token, buffer[255];
+  herg_row temp_array;
+  short idx;
+  int sample_size=0;
+
+  if( (fp_drugs = fopen(file_name, "r")) == NULL){
+    printf("Cannot open file %s\n", file_name);
+    return 1;
+  }
+
+  fgets(buffer, sizeof(buffer), fp_drugs); // skip header
+  while( fgets(buffer, sizeof(buffer), fp_drugs) != NULL )
+  { // begin line reading
+    token = strtok( buffer, "," );
+    idx = 0;
+    while( token != NULL )
+    { // begin data tokenizing
+      temp_array.herg[idx++] = strtod(token, NULL);
+      token = strtok(NULL, ",");
+    } // end data tokenizing
+    vec.push_back(temp_array);
+    sample_size++;
+  } // end line reading
+
+  return sample_size;
+}
+
 int main(int argc, char **argv)
 {
-	// enable real-time output in stdout
-	//setvbuf( stdout, NULL, _IONBF, 0 );
 	
-// NEW CODE STARTS HERE //
-    // mycuda *thread_id;
-    // cudaMalloc(&thread_id, sizeof(mycuda));
-
     // for qinwards calculation
     double inal_auc_control = -90.547322;    // AUC of INaL under control model
     double ical_auc_control = -105.935067;   // AUC of ICaL under control model

@@ -520,12 +520,15 @@
  * RATES[Jrelp] is d/dt Jrelp in component ryr (dimensionless).
  */
 
+// short algebraic_size = 200;
+// short constant_size = 206;
+// short states_size = 49;
+// short rates_size = 49;
+
 __device__ void ___initConsts(double *CONSTANTS, double *STATES, double type, double bcl, int offset)
 {
-algebraic_size = 200;
-constants_size = 206;
-states_size = 49;
-rates_size = 49;
+short constant_size = 206;
+short states_size = 49;
   // consider to put all of the sizes here,  as in 2011 ord
 CONSTANTS[(constant_size * offset) + celltype] = type;
 CONSTANTS[(constant_size * offset) + nao] = 140;
@@ -786,24 +789,19 @@ CONSTANTS[(constant_size * offset) + Pnak] = (CONSTANTS[(constant_size * offset)
 
 __device__ void applyDrugEffect(double *CONSTANTS, double conc, double *ic50, double epsilon, int offset)
 {
-algebraic_size = 200;
-constants_size = 206;
-states_size = 49;
-rates_size = 49;
-CONSTANTS[(constant_size * offset) + GK1] = CONSTANTS[(constant_size * offset) + GK1] * ((hill[2] > 10E-14 && hill[3] > 10E-14) ? 1./(1.+pow(conc/hill[2],hill[3])) : 1.);
-CONSTANTS[(constant_size * offset) + GKs] = CONSTANTS[(constant_size * offset) + GKs] * ((hill[4] > 10E-14 && hill[5] > 10E-14) ? 1./(1.+pow(conc/hill[4],hill[5])) : 1.);
-CONSTANTS[(constant_size * offset) + GNaL] = CONSTANTS[(constant_size * offset) + GNaL] * ((hill[8] > 10E-14 && hill[9] > 10E-14) ? 1./(1.+pow(conc/hill[8],hill[9])) : 1.);
-CONSTANTS[(constant_size * offset) + GNa] = CONSTANTS[(constant_size * offset) + GNa] * ((hill[6] > 10E-14 && hill[7] > 10E-14) ? 1./(1.+pow(conc/hill[6],hill[7])) : 1.);
-CONSTANTS[(constant_size * offset) + Gto] = CONSTANTS[(constant_size * offset) + Gto] * ((hill[10] > 10E-14 && hill[11] > 10E-14) ? 1./(1.+pow(conc/hill[10],hill[11])) : 1.);
-CONSTANTS[(constant_size * offset) + PCa] = CONSTANTS[(constant_size * offset) + PCa] * ( (hill[0] > 10E-14 && hill[1] > 10E-14) ? 1./(1.+pow(conc/hill[0],hill[1])) : 1.);
+short constant_size = 206;
+CONSTANTS[(constant_size * offset) + GK1] = CONSTANTS[(constant_size * offset) + GK1] * ((ic50[(offset*14) + 2] > 10E-14 && ic50[(offset*14) + 3] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 2],ic50[(offset*14) + 3])) : 1.);
+CONSTANTS[(constant_size * offset) + GKs] = CONSTANTS[(constant_size * offset) + GKs] * ((ic50[(offset*14) + 4] > 10E-14 && ic50[(offset*14) + 5] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 4],ic50[(offset*14) + 5])) : 1.);
+CONSTANTS[(constant_size * offset) + GNaL] = CONSTANTS[(constant_size * offset) + GNaL] * ((ic50[(offset*14) + 8] > 10E-14 && ic50[(offset*14) + 9] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 8],ic50[(offset*14) + 9])) : 1.);
+CONSTANTS[(constant_size * offset) + GNa] = CONSTANTS[(constant_size * offset) + GNa] * ((ic50[(offset*14) + 6] > 10E-14 && ic50[(offset*14) + 7] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 6],ic50[(offset*14) + 7])) : 1.);
+CONSTANTS[(constant_size * offset) + Gto] = CONSTANTS[(constant_size * offset) + Gto] * ((ic50[(offset*14) + 10] > 10E-14 && ic50[(offset*14) + 11] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 10],ic50[(offset*14) + 11])) : 1.);
+CONSTANTS[(constant_size * offset) + PCa] = CONSTANTS[(constant_size * offset) + PCa] * ( (ic50[(offset*14) + 0] > 10E-14 && ic50[(offset*14) + 1] > 10E-14) ? 1./(1.+pow(conc/ic50[(offset*14) + 0],ic50[(offset*14) + 1])) : 1.);
 }
 
-__device__ void ___applyHERGBinding(double conc, const double *herg)
+__device__ void ___applyHERGBinding(double *CONSTANTS, double *STATES, double conc, double *herg, int offset)
 {
-algebraic_size = 200;
-constants_size = 206;
-states_size = 49;
-rates_size = 49;
+short constant_size = 206;
+short states_size = 49;
 if(conc > 10E-14){
 CONSTANTS[(constant_size * offset) + Kmax] = herg[0];
 CONSTANTS[(constant_size * offset) + Ku] = herg[1];
@@ -825,24 +823,24 @@ STATES[(states_size * offset) + D] = CONSTANTS[(constant_size * offset) + cnc];
 // 	___initConsts(type);
 // }
 
-__device__ void initConsts(double *CONSTANTS, double *STATES, double type, double conc, double *ic50, double *cvar, bool is_dutta, bool is_cvar, double bcl, int offset)
+__device__ void initConsts(double *CONSTANTS, double *STATES, double type, double conc, double *ic50, double *herg, double *cvar, bool is_dutta, bool is_cvar, double bcl, double epsilon, int offset)
 {
-	___initConsts(type);
+	___initConsts(CONSTANTS, STATES, type, bcl, offset);
 	// mpi_printf(0,"Celltype: %lf\n", CONSTANTS[celltype]);
 	// mpi_printf(0,"Control %lf %lf %lf %lf %lf\n", CONSTANTS[PCa], CONSTANTS[GK1], CONSTANTS[GKs], CONSTANTS[GNaL], CONSTANTS[GKr]);
-	___applyDrugEffect(conc, hill);
+	applyDrugEffect(CONSTANTS, conc, ic50, epsilon, offset);
 	// mpi_printf(0,"After drug %lf %lf %lf %lf %lf\n", CONSTANTS[PCa], CONSTANTS[GK1], CONSTANTS[GKs], CONSTANTS[GNaL], CONSTANTS[GKr]);
 	// mpi_printf(0,"Control hERG binding %lf %lf %lf %lf %lf %lf\n", CONSTANTS[Kmax], CONSTANTS[Ku], CONSTANTS[n], CONSTANTS[halfmax], CONSTANTS[Vhalf], CONSTANTS[cnc]);
-	___applyHERGBinding(conc, herg);
+	___applyHERGBinding(CONSTANTS, STATES, conc, herg, offset);
 	// mpi_printf(0,"Bootstrapped hERG binding %lf %lf %lf %lf %lf %lf\n", CONSTANTS[Kmax], CONSTANTS[Ku], CONSTANTS[n], CONSTANTS[halfmax], CONSTANTS[Vhalf], CONSTANTS[cnc]);
 }
 
 __device__ void computeRates( double TIME, double *CONSTANTS, double *RATES, double *STATES, double *ALGEBRAIC, int offset )
 {
-algebraic_size = 200;
-constants_size = 206;
-states_size = 49;
-rates_size = 49;
+short algebraic_size = 200;
+short constant_size = 206;
+short states_size = 49;
+short rates_size = 49;
 ALGEBRAIC[(algebraic_size * offset) + hLss] = 1.00000/(1.00000+exp((STATES[(states_size * offset) + V]+87.6100)/7.48800));
 ALGEBRAIC[(algebraic_size * offset) + hLssp] = 1.00000/(1.00000+exp((STATES[(states_size * offset) + V]+93.8100)/7.48800));
 ALGEBRAIC[(algebraic_size * offset) + mss] = 1.00000/(1.00000+exp(- (STATES[(states_size * offset) + V]+CONSTANTS[mssV1])/CONSTANTS[(constant_size * offset) + mssV2]));
@@ -1099,10 +1097,10 @@ RATES[(rates_size * offset) + cajsr] =  ALGEBRAIC[(algebraic_size * offset) + Bc
 
 __device__ void solveAnalytical(double *CONSTANTS, double *STATES, double *ALGEBRAIC, double *RATES, double dt, int offset)
 {
-algebraic_size = 200;
-constants_size = 206;
-states_size = 49;
-rates_size = 49;
+short algebraic_size = 200;
+short constant_size = 206;
+short states_size = 49;
+short rates_size = 49;
 ////==============
 ////Exact solution
 ////==============
@@ -1211,7 +1209,7 @@ rates_size = 49;
   for(int i = 0; i < m; i++){
     x[i] = 0.0;
   }
-  __device__ double ___gaussElimination(a,b,x,m); // gpu capable?
+  ___gaussElimination(a,b,x,m); // gpu capable?
   STATES[(states_size * offset) + IC1] = x[0];
   STATES[(states_size * offset) + IC2] = x[1];
   STATES[(states_size * offset) + C1] = x[2];
@@ -1330,46 +1328,79 @@ __device__ double ___gaussElimination(double *A, double *b, double *x, int N) {
 // 	}
 // }
 
-__device__ double set_time_step (double TIME,
-                                              double time_point,
-                                              double min_time_step,
-                                              double max_time_step,
-                                              double min_dV,
-                                              double max_dV) {
- double time_step = min_time_step;
- if (TIME <= time_point || (TIME - floor(TIME / CONSTANTS[(constant_size * offset) +  BCL]) * CONSTANTS[(constant_size * offset) +  BCL]) <= time_point) {
+// __device__ double set_time_step (double TIME, double time_point, double min_time_step, double max_time_step, double min_dV, double max_dV) {
+//  double time_step = min_time_step;
+//  if (TIME <= time_point || (TIME - floor(TIME / CONSTANTS[(constant_size * offset) +  BCL]) * CONSTANTS[(constant_size * offset) +  BCL]) <= time_point) {
+//     //printf("TIME <= time_point ms\n");
+//     return time_step;
+//     //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
+//   }
+//   else {
+//     //printf("TIME > time_point ms\n");
+//     if (std::abs(RATES[(rates_size * offset) + V] * time_step) <= min_dV) {//Slow changes in V
+//         //printf("dV/dt <= 0.2\n");
+//         time_step = std::abs(max_dV / RATES[(rates_size * offset) + V]);
+//         //Make sure time_step is between min time step and max_time_step
+//         if (time_step < min_time_step) {
+//             time_step = min_time_step;
+//         }
+//         else if (time_step > max_time_step) {
+//             time_step = max_time_step;
+//         }
+//         //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
+//     }
+//     else if (std::abs(RATES[(rates_size * offset) + V] * time_step) >= max_dV) {//Fast changes in V
+//         //printf("dV/dt >= 0.8\n");
+//         time_step = std::abs(min_dV / RATES[(rates_size * offset) + V]);
+//         //Make sure time_step is not less than 0.005
+//         if (time_step < min_time_step) {
+//             time_step = min_time_step;
+//         }
+//         //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
+//     } else {
+//         time_step = min_time_step;
+//     }
+//     return time_step;
+//   }
+// }
+
+/// using ord 2011 set time step
+__device__ double set_time_step(double TIME, double time_point, double max_time_step, double *CONSTANTS, double *RATES, int offset) {
+  double time_step = 0.005;
+  int num_of_constants = 146;
+  int num_of_rates = 41;
+
+  if (TIME <= time_point || (TIME - floor(TIME / CONSTANTS[BCL + (offset * num_of_constants)]) * CONSTANTS[BCL + (offset * num_of_constants)]) <= time_point) {
     //printf("TIME <= time_point ms\n");
     return time_step;
-    //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
+    //printf("dV = %lf, time_step = %lf\n",RATES[V] * time_step, time_step);
   }
   else {
     //printf("TIME > time_point ms\n");
-    if (std::abs(RATES[(rates_size * offset) + V] * time_step) <= min_dV) {//Slow changes in V
-        //printf("dV/dt <= 0.2\n");
-        time_step = std::abs(max_dV / RATES[(rates_size * offset) + V]);
-        //Make sure time_step is between min time step and max_time_step
-        if (time_step < min_time_step) {
-            time_step = min_time_step;
+    if (std::abs(RATES[V + (offset * num_of_rates)] * time_step) <= 0.2) {//Slow changes in V
+        // printf("dV/dt <= 0.2\n");
+        time_step = std::abs(0.8 / RATES[V + (offset * num_of_rates)]);
+        //Make sure time_step is between 0.005 and max_time_step
+        if (time_step < 0.005) {
+            time_step = 0.005;
         }
         else if (time_step > max_time_step) {
             time_step = max_time_step;
         }
-        //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
+        //printf("dV = %lf, time_step = %lf\n",std::abs(RATES[V] * time_step), time_step);
     }
-    else if (std::abs(RATES[(rates_size * offset) + V] * time_step) >= max_dV) {//Fast changes in V
-        //printf("dV/dt >= 0.8\n");
-        time_step = std::abs(min_dV / RATES[(rates_size * offset) + V]);
-        //Make sure time_step is not less than 0.005
-        if (time_step < min_time_step) {
-            time_step = min_time_step;
+    else if (std::abs(RATES[V + (offset * num_of_rates)] * time_step) >= 0.8) {//Fast changes in V
+        // printf("dV/dt >= 0.8\n");
+        time_step = std::abs(0.2 / RATES[V + (offset * num_of_rates)]);
+        while (std::abs(RATES[V + (offset * num_of_rates)]  * time_step) >= 0.8 &&
+               0.005 < time_step &&
+               time_step < max_time_step) {
+            time_step = time_step / 10.0;
+            // printf("dV = %lf, time_step = %lf\n",std::abs(RATES[V] * time_step), time_step);
         }
-        //printf("TIME = %E, dV = %E, time_step = %E\n",TIME, RATES[V] * time_step, time_step);
-    } else {
-        time_step = min_time_step;
     }
+    // __syncthreads();
     return time_step;
   }
 }
-
-
 

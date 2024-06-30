@@ -216,36 +216,66 @@ int check_IC50_content(const drug_t* ic50, const param_t* p_param)
 	}
 }
 
-typedef struct herg_row { double herg[6]; } herg_row;
-int get_herg_data_from_file(const char *file_name, herg_data &vec)
+int get_herg_data_from_file(const char* file_name, double *herg)
 {
-  FILE *fp_drugs;
-  char *token, buffer[255];
-  herg_row temp_array;
-  short idx;
-  int sample_size=0;
+  FILE *fp_herg;
+  char *token;
+  char buffer_herg[255];
+  unsigned int idx;
 
-  if( (fp_drugs = fopen(file_name, "r")) == NULL){
+  if( (fp_herg = fopen(file_name, "r")) == NULL){
     printf("Cannot open file %s\n", file_name);
-    return 1;
+    return 0;
   }
+  idx = 0;
+  int sample_size = 0;
+  fgets(buffer_herg, sizeof(buffer_herg), fp_herg); // skip header
+  while( fgets(buffer_herg, sizeof(buffer_herg), fp_herg) != NULL )
+    { // begin line reading
+      token = strtok( buffer_herg, "," );
+      while( token != NULL )
+      { // begin data tokenizing
+        herg[idx++] = strtod(token, NULL);
+        token = strtok(NULL, ",");
+      } // end data tokenizing
+      sample_size++;
+    } // end line reading
 
-  fgets(buffer, sizeof(buffer), fp_drugs); // skip header
-  while( fgets(buffer, sizeof(buffer), fp_drugs) != NULL )
-  { // begin line reading
-    token = strtok( buffer, "," );
-    idx = 0;
-    while( token != NULL )
-    { // begin data tokenizing
-      temp_array.herg[idx++] = strtod(token, NULL);
-      token = strtok(NULL, ",");
-    } // end data tokenizing
-    vec.push_back(temp_array);
-    sample_size++;
-  } // end line reading
-
+  fclose(fp_herg);
   return sample_size;
 }
+
+// typedef struct herg_row { double herg[6]; } herg_row;
+// the c++ way
+// int get_herg_data_from_file(const char *file_name, herg_data &vec)
+// {
+//   FILE *fp_drugs;
+//   char *token, buffer[255];
+//   herg_row temp_array;
+//   short idx;
+//   int sample_size=0;
+
+//   if( (fp_drugs = fopen(file_name, "r")) == NULL){
+//     printf("Cannot open file %s\n", file_name);
+//     return 1;
+//   }
+
+//   fgets(buffer, sizeof(buffer), fp_drugs); // skip header
+//   while( fgets(buffer, sizeof(buffer), fp_drugs) != NULL )
+//   { // begin line reading
+//     token = strtok( buffer, "," );
+//     idx = 0;
+//     while( token != NULL )
+//     { // begin data tokenizing
+//       temp_array.herg[idx++] = strtod(token, NULL);
+//       token = strtok(NULL, ",");
+//     } // end data tokenizing
+//     vec.push_back(temp_array);
+//     sample_size++;
+//   } // end line reading
+
+//   return sample_size;
+// }
 
 int main(int argc, char **argv)
 {
@@ -265,7 +295,8 @@ int main(int argc, char **argv)
     double* ic50 = (double *)malloc(14 * sample_limit * sizeof(double));
     // if (p_param->is_cvar == true) cvar = (double *)malloc(18 * sample_limit * sizeof(double));
     double* cvar = (double *)malloc(18 * sample_limit * sizeof(double));  // conductance variability
-
+    double* herg = (double *)malloc(6 * sizeof(double));
+    
     const int num_of_constants = 146;
     const int num_of_states = 41;
     const int num_of_algebraic = 199;
@@ -299,9 +330,16 @@ int main(int argc, char **argv)
         printf("Sample size: %d\n",sample_size);
         printf("Set GPU Number: %d\n",p_param->gpu_index);
 
-        sample_size = get_herg_data_from_file(p_param->herg_file), herg);
-        if(sample_size == 0)
-            printf("Something problem with the IC50 file!\n");
+        int herg_size = get_herg_data_from_file(p_param->herg_file ,herg);
+        if(herg_size == 0)
+            printf("Something problem with the herg file!\n");
+
+        printf("herg check:\n");
+        for(int temp = 0; temp<6; temp++){
+          printf("%lf, ",herg[temp]);
+          } 
+          printf("\n");
+
 
         cudaSetDevice(p_param->gpu_index);  // select a specific GPU
 
@@ -331,6 +369,7 @@ int main(int argc, char **argv)
         // return 0 ;
         double *d_ic50;
         double *d_cvar;
+        double *d_herg;
         double *d_ALGEBRAIC;
         double *d_CONSTANTS;
         double *d_RATES;
@@ -378,11 +417,13 @@ int main(int argc, char **argv)
         // cudaMalloc(&d_all_states, num_of_states * sample_size * p_param->find_steepest_start * sizeof(double));
         cudaMalloc(&d_ic50, sample_size * 14 * sizeof(double));  // ic50s of 7 channels 
         cudaMalloc(&d_cvar, sample_size * 18 * sizeof(double));  // conductances of 18
+        cudaMalloc(&d_herg, 6 * sizeof(double));
 
         printf("Copying sample files to GPU memory space \n");
         cudaMemcpy(d_STATES_cache, cache, (num_of_states+2) * sample_size * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(d_ic50, ic50, sample_size * 14 * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_herg, herg, 6 * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(d_p_param, p_param, sizeof(param_t), cudaMemcpyHostToDevice);
 
         // // Get the maximum number of active blocks per multiprocessor
@@ -410,7 +451,7 @@ int main(int argc, char **argv)
 
 
         kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_STATES_cache, d_RATES, d_ALGEBRAIC, 
-                                                  d_STATES_RESULT, d_all_states,
+                                                  d_STATES_RESULT, d_all_states, d_herg,
                                                   time, states, dt, cai_result,
                                                   ina, inal, 
                                                   ical, ito,
@@ -616,11 +657,12 @@ int main(int argc, char **argv)
 
 
     ////////// find cache mode (in silico code) //////////
-else
-  {
+  else
+    {
       printf("In-silico mode, creating cache file because we don't have that yet, or is_time_series is intentionally false \n\n");
       double *d_ic50;
       double *d_cvar;
+      double *d_herg;
       double *d_ALGEBRAIC;
       double *d_CONSTANTS;
       double *d_RATES;
@@ -657,9 +699,15 @@ else
       //     printf("Too much input! Maximum sample data is 2000!\n");
       printf("Sample size: %d\n",sample_size);
 
-      sample_size = get_herg_data_from_file(p_param->herg_file), herg);
-      if(sample_size == 0)
-          printf("Something problem with the IC50 file!\n");
+      int herg_size = get_herg_data_from_file(p_param->herg_file, herg);
+      if(herg_size == 0)
+          printf("Something problem with the herg file!\n");
+      
+      printf("herg check:\n");
+        for(int temp = 0; temp<6; temp++){
+          printf("%lf, ",herg[temp]);
+          } 
+          printf("\n");
 
       cudaSetDevice(p_param->gpu_index);
       printf("preparing GPU memory space \n");
@@ -687,11 +735,14 @@ else
       cudaMalloc(&d_ic50, sample_size * 14 * sizeof(double));
       // if(p_param->is_cvar == true) cudaMalloc(&d_cvar, sample_size * 18 * sizeof(double));
       cudaMalloc(&d_cvar, sample_size * 18 * sizeof(double));
+      cudaMalloc(&d_herg, 6 * sizeof(double));
       
       cudaMemcpy(d_ic50, ic50, sample_size * 14 * sizeof(double), cudaMemcpyHostToDevice);
       // if(p_param->is_cvar == true) cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
       cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
       cudaMemcpy(d_p_param, p_param, sizeof(param_t), cudaMemcpyHostToDevice);
+      cudaMemcpy(d_herg, herg, 6 * sizeof(double), cudaMemcpyHostToDevice);
+
 
       // // Get the maximum number of active blocks per multiprocessor
       // cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocks, do_drug_sim_analytical, threadsPerBlock);
@@ -720,7 +771,7 @@ else
       // printf("[____________________________________________________________________________________________________]  0.00 %% \n");
 
       kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_STATES_cache, d_RATES, d_ALGEBRAIC, 
-                                                d_STATES_RESULT, d_all_states,
+                                                d_STATES_RESULT, d_all_states, d_herg,
                                                 time, states, dt, cai_result,
                                                 ina, inal, 
                                                 ical, ito,

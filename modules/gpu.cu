@@ -414,7 +414,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
 
 
 __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
-                                       double *time, double *states, double *out_dt,  double *cai_result, 
+                                       double *time, double *states, double *out_dt,  double *cai_result, double *d_herg,
                                        double *ina, double *inal,
                                        double *ical, double *ito,
                                        double *ikr, double *iks, 

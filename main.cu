@@ -297,10 +297,10 @@ int main(int argc, char **argv)
     double* cvar = (double *)malloc(18 * sample_limit * sizeof(double));  // conductance variability
     double* herg = (double *)malloc(6 * sizeof(double));
     
-    const int num_of_constants = 146;
-    const int num_of_states = 41;
-    const int num_of_algebraic = 199;
-    const int num_of_rates = 41;
+    const int num_of_constants = 206;
+    const int num_of_states = 49;
+    const int num_of_algebraic = 200;
+    const int num_of_rates = 49;
     const double CONC = p_param->conc;
 
       ////////// if we are in write time series mode (post processing) //////////

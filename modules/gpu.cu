@@ -31,10 +31,10 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     
     unsigned long long input_counter = 0;
 
-    int num_of_constants = 146;
-    int num_of_states = 41;
-    int num_of_algebraic = 199;
-    int num_of_rates = 41;
+    int num_of_constants = 206;
+    int num_of_states = 49;
+    int num_of_algebraic = 200;
+    int num_of_rates = 49;
 
 
     // INIT STARTS
@@ -427,10 +427,10 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
     
     unsigned long long input_counter = 0;
 
-    int num_of_constants = 146;
-    int num_of_states = 41;
-    int num_of_algebraic = 199;
-    int num_of_rates = 41;
+    int num_of_constants = 206;
+    int num_of_states = 49;
+    int num_of_algebraic = 200;
+    int num_of_rates = 49;
 
 
     // INIT STARTS

@@ -529,7 +529,6 @@ __device__ void ___initConsts(double *CONSTANTS, double *STATES, double type, do
 {
 short constant_size = 206;
 short states_size = 49;
-  // consider to put all of the sizes here,  as in 2011 ord
 CONSTANTS[(constant_size * offset) + celltype] = type;
 CONSTANTS[(constant_size * offset) + nao] = 140;
 CONSTANTS[(constant_size * offset) + cao] = 1.8;

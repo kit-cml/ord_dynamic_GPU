@@ -465,7 +465,6 @@ enum E_STATES_T{
   xk1 = 46,
   Jrelnp = 47,
   Jrelp = 48,
-  ca_trpn = 49,
 };
 
 

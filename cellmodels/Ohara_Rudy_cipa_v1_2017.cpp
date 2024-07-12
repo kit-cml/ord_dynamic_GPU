@@ -528,7 +528,7 @@
 __device__ void ___initConsts(double *CONSTANTS, double *STATES, double type, double bcl, int offset)
 {
 short constant_size = 206;
-short states_size = 49;
+short states_size = 50;
 CONSTANTS[(constant_size * offset) + celltype] = type;
 CONSTANTS[(constant_size * offset) + nao] = 140;
 CONSTANTS[(constant_size * offset) + cao] = 1.8;
@@ -800,7 +800,7 @@ CONSTANTS[(constant_size * offset) + PCa] = CONSTANTS[(constant_size * offset) +
 __device__ void ___applyHERGBinding(double *CONSTANTS, double *STATES, double conc, double *herg, int offset)
 {
 short constant_size = 206;
-short states_size = 49;
+short states_size = 50;
 if(conc > 10E-14){
 CONSTANTS[(constant_size * offset) + Kmax] = herg[0];
 CONSTANTS[(constant_size * offset) + Ku] = herg[1];
@@ -834,12 +834,12 @@ __device__ void initConsts(double *CONSTANTS, double *STATES, double type, doubl
 	// mpi_printf(0,"Bootstrapped hERG binding %lf %lf %lf %lf %lf %lf\n", CONSTANTS[Kmax], CONSTANTS[Ku], CONSTANTS[n], CONSTANTS[halfmax], CONSTANTS[Vhalf], CONSTANTS[cnc]);
 }
 
-__device__ void computeRates( double TIME, double *CONSTANTS, double *RATES, double *STATES, double *ALGEBRAIC, int offset )
+__device__ void computeRates( double TIME, double *CONSTANTS, double *RATES, double *STATES, double *ALGEBRAIC, int offset, double land_trpn)
 {
 short algebraic_size = 200;
 short constant_size = 206;
-short states_size = 49;
-short rates_size = 49;
+short states_size = 50;
+short rates_size = 50;
 ALGEBRAIC[(algebraic_size * offset) + hLss] = 1.00000/(1.00000+exp((STATES[(states_size * offset) + V]+87.6100)/7.48800));
 ALGEBRAIC[(algebraic_size * offset) + hLssp] = 1.00000/(1.00000+exp((STATES[(states_size * offset) + V]+93.8100)/7.48800));
 ALGEBRAIC[(algebraic_size * offset) + mss] = 1.00000/(1.00000+exp(- (STATES[(states_size * offset) + V]+CONSTANTS[mssV1])/CONSTANTS[(constant_size * offset) + mssV2]));
@@ -1088,7 +1088,9 @@ RATES[(rates_size * offset) + nai] = ( - (ALGEBRAIC[(algebraic_size * offset) + 
 RATES[(rates_size * offset) + nass] = ( - (ALGEBRAIC[(algebraic_size * offset) + ICaNa]+ 3.00000*ALGEBRAIC[(algebraic_size * offset) + INaCa_ss])*CONSTANTS[(constant_size * offset) +  cm]*CONSTANTS[(constant_size * offset) +  Acap])/( CONSTANTS[(constant_size * offset) +  F]*CONSTANTS[(constant_size * offset) +  vss]) - ALGEBRAIC[(algebraic_size * offset) + JdiffNa];
 RATES[(rates_size * offset) + V] = - (ALGEBRAIC[(algebraic_size * offset) + INa]+ALGEBRAIC[(algebraic_size * offset) + INaL]+ALGEBRAIC[(algebraic_size * offset) + Ito]+ALGEBRAIC[(algebraic_size * offset) + ICaL]+ALGEBRAIC[(algebraic_size * offset) + ICaNa]+ALGEBRAIC[(algebraic_size * offset) + ICaK]+ALGEBRAIC[(algebraic_size * offset) + IKr]+ALGEBRAIC[(algebraic_size * offset) + IKs]+ALGEBRAIC[(algebraic_size * offset) + IK1]+ALGEBRAIC[(algebraic_size * offset) + INaCa_i]+ALGEBRAIC[(algebraic_size * offset) + INaCa_ss]+ALGEBRAIC[(algebraic_size * offset) + INaK]+ALGEBRAIC[(algebraic_size * offset) + INab]+ALGEBRAIC[(algebraic_size * offset) + IKb]+ALGEBRAIC[(algebraic_size * offset) + IpCa]+ALGEBRAIC[(algebraic_size * offset) + ICab]+ALGEBRAIC[(algebraic_size * offset) + Istim]);
 RATES[(rates_size * offset) + cass] =  ALGEBRAIC[(algebraic_size * offset) + Bcass]*((( - (ALGEBRAIC[(algebraic_size * offset) + ICaL] -  2.00000*ALGEBRAIC[(algebraic_size * offset) + INaCa_ss])*CONSTANTS[(constant_size * offset) +  cm]*CONSTANTS[(constant_size * offset) +  Acap])/( 2.00000*CONSTANTS[(constant_size * offset) +  F]*CONSTANTS[(constant_size * offset) +  vss])+( ALGEBRAIC[(algebraic_size * offset) + Jrel]*CONSTANTS[(constant_size * offset) +  vjsr])/CONSTANTS[(constant_size * offset) +  vss]) - ALGEBRAIC[(algebraic_size * offset) + Jdiff]);
-RATES[(rates_size * offset) + cai] =  ALGEBRAIC[(algebraic_size * offset) + Bcai]*((( - ((ALGEBRAIC[(algebraic_size * offset) + IpCa]+ALGEBRAIC[(algebraic_size * offset) + ICab]) -  2.00000*ALGEBRAIC[(algebraic_size * offset) + INaCa_i])*CONSTANTS[(constant_size * offset) +  cm]*CONSTANTS[(constant_size * offset) +  Acap])/( 2.00000*CONSTANTS[(constant_size * offset) +  F]*CONSTANTS[(constant_size * offset) +  vmyo]) - ( ALGEBRAIC[(algebraic_size * offset) + Jup]*CONSTANTS[(constant_size * offset) +  vnsr])/CONSTANTS[(constant_size * offset) +  vmyo])+( ALGEBRAIC[(algebraic_size * offset) + Jdiff]*CONSTANTS[(constant_size * offset) +  vss])/CONSTANTS[(constant_size * offset) +  vmyo]);
+// new for coupling
+RATES[(rates_size * offset) + ca_trpn] = CONSTANTS[(constant_size * offset) + trpnmax] * land_trpn;
+RATES[(rates_size * offset) + cai] =  ALGEBRAIC[(algebraic_size * offset) + Bcai]*((( - ((ALGEBRAIC[(algebraic_size * offset) + IpCa]+ALGEBRAIC[(algebraic_size * offset) + ICab]) -  2.00000*ALGEBRAIC[(algebraic_size * offset) + INaCa_i])*CONSTANTS[(constant_size * offset) +  cm]*CONSTANTS[(constant_size * offset) +  Acap])/( 2.00000*CONSTANTS[(constant_size * offset) +  F]*CONSTANTS[(constant_size * offset) +  vmyo]) - ( ALGEBRAIC[(algebraic_size * offset) + Jup]*CONSTANTS[(constant_size * offset) +  vnsr])/CONSTANTS[(constant_size * offset) +  vmyo])+( ALGEBRAIC[(algebraic_size * offset) + Jdiff]*CONSTANTS[(constant_size * offset) +  vss])/CONSTANTS[(constant_size * offset) +  vmyo] - RATES[(offset * rates_size) + ca_trpn]); //modified
 RATES[(rates_size * offset) + cansr] = ALGEBRAIC[(algebraic_size * offset) + Jup] - ( ALGEBRAIC[(algebraic_size * offset) + Jtr]*CONSTANTS[(constant_size * offset) +  vjsr])/CONSTANTS[(constant_size * offset) +  vnsr];
 RATES[(rates_size * offset) + cajsr] =  ALGEBRAIC[(algebraic_size * offset) + Bcajsr]*(ALGEBRAIC[(algebraic_size * offset) + Jtr] - ALGEBRAIC[(algebraic_size * offset) + Jrel]);
 }
@@ -1098,8 +1100,8 @@ __device__ void solveAnalytical(double *CONSTANTS, double *STATES, double *ALGEB
 {
 short algebraic_size = 200;
 short constant_size = 206;
-short states_size = 49;
-short rates_size = 49;
+short states_size = 50;
+short rates_size = 50;
 ////==============
 ////Exact solution
 ////==============
@@ -1334,7 +1336,7 @@ __device__ double set_time_step (double TIME, double time_point, double max_time
  double max_dV = 0.8;
 
  short constant_size = 206;
- short rates_size = 49;
+ short rates_size = 50;
  
  if (TIME <= time_point || (TIME - floor(TIME / CONSTANTS[(constant_size * offset) +  BCL]) * CONSTANTS[(constant_size * offset) +  BCL]) <= time_point) {
     //printf("TIME <= time_point ms\n");

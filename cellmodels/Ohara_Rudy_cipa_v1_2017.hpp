@@ -38,7 +38,7 @@
 	__device__ void ___applyCvar(double *CONSTANTS, double *cvar, int offset);
 	__device__ void ___initConsts(double *CONSTANTS, double *STATES, double type, double bcl, int offset);
 	__device__ void ___applyHERGBinding(double *CONSTANTS, double *STATES, double conc, double *herg, int offset);
-	__device__ double ___gaussElimination(double *A, double *b, double *x, int N);
+	__device__ void ___gaussElimination(double *A, double *b, double *x, int N);
 
 
 #endif
